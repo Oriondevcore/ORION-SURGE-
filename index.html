@@ -1,568 +1,334 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#06b6d4">
-    <meta name="description" content="Orion Surge - High Speed Crypto Crash Game">
-    <title>ORION SURGE</title>
-    
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="icon-192.png">
-    
-    <!-- React & Tailwind -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://unpkg.com/lucide-react@latest"></script>
-
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
-
-    <style>
-        body { 
-            font-family: 'Rajdhani', sans-serif; 
-            background-color: #09090b; 
-            color: white; 
-            overscroll-behavior: none;
-        }
-        .font-brand { font-family: 'Orbitron', sans-serif; }
-        .neon-text { text-shadow: 0 0 10px rgba(34, 211, 238, 0.5); }
-        .neon-box { box-shadow: 0 0 15px rgba(34, 211, 238, 0.2); }
-        
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-track { background: #18181b; }
-        ::-webkit-scrollbar-thumb { background: #0e7490; border-radius: 5px; }
-        
-        /* Animation Classes */
-        @keyframes pulse-cyan {
-            0%, 100% { box-shadow: 0 0 15px rgba(6, 182, 212, 0.5); }
-            50% { box-shadow: 0 0 25px rgba(6, 182, 212, 0.8); }
-        }
-        .animate-glow { animation: pulse-cyan 2s infinite; }
-        
-        canvas { touch-action: none; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#22d3ee">
+  <title>ORION SURGE</title>
+  <link rel="manifest" href="manifest.json">
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body>
-    <div id="root"></div>
+  <div id="root"></div>
+  
+  <script type="module">
+   import React, { useState, useEffect, useRef } from 'react';
+import { Zap, TrendingUp, Users, Trophy, Settings, DollarSign } from 'lucide-react';
 
-    <!-- Babel for JSX -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+const OrionSurge = () => {
+  const [gameState, setGameState] = useState('BETTING');
+  const [multiplier, setMultiplier] = useState(1.00);
+  const [countdown, setCountdown] = useState(6);
+  const [crashPoint, setCrashPoint] = useState(null);
+  const [roundId, setRoundId] = useState(1);
+  const [username, setUsername] = useState('');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [balance, setBalance] = useState(1000);
+  const [betAmount1, setBetAmount1] = useState(100);
+  const [betAmount2, setBetAmount2] = useState(40);
+  const [activeBet1, setActiveBet1] = useState(null);
+  const [activeBet2, setActiveBet2] = useState(null);
+  const [autoCashout1, setAutoCashout1] = useState(null);
+  const [autoCashout2, setAutoCashout2] = useState(null);
+  const [recentCrashes, setRecentCrashes] = useState([]);
+  const [totalWagered, setTotalWagered] = useState(0);
+  const [houseProfit, setHouseProfit] = useState(0);
+  const [showSettings, setShowSettings] = useState(false);
+  const startTimeRef = useRef(null);
 
-    <script type="text/babel">
-        // --- CONFIGURATION ---
-        // 🚨 YOUR CONNECTED APP URL IS BELOW:
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzTal0AkR_WcimTVWCiQrfgiTMlK4SPTQn6usSwexLbpxeUvuGKiIvTIyqMbpK7zd4W/exec'; 
+  const generateCrashPoint = () => {
+    const random = Math.random();
+    const result = Math.floor((99) / (1 - random)) / 100;
+    return Math.max(1.05, Math.min(100.00, result));
+  };
 
-        const { useState, useEffect, useRef, useMemo } = React;
-        const { Zap, Trophy, History, User, Coins, LogOut, Gift, Activity } = lucide;
+  const placeBet = (slot) => {
+    if (gameState !== 'BETTING') return;
+    const amount = slot === 1 ? betAmount1 : betAmount2;
+    if (amount < 40 || amount > 2000 || amount > balance) return;
+    
+    setBalance(prev => prev - amount);
+    setTotalWagered(prev => prev + amount);
+    if (slot === 1) setActiveBet1({ amount, cashedOut: false });
+    else setActiveBet2({ amount, cashedOut: false });
+  };
 
-        // --- COMPONENTS ---
+  const cashOut = (slot) => {
+    if (gameState !== 'PLAYING') return;
+    const bet = slot === 1 ? activeBet1 : activeBet2;
+    if (!bet || bet.cashedOut) return;
+    
+    const winAmount = Math.floor(bet.amount * multiplier);
+    setBalance(prev => prev + winAmount);
+    
+    if (slot === 1) setActiveBet1(prev => ({ ...prev, cashedOut: true, cashoutMultiplier: multiplier, winAmount }));
+    else setActiveBet2(prev => ({ ...prev, cashedOut: true, cashoutMultiplier: multiplier, winAmount }));
+  };
 
-        // 1. LOGIN SCREEN
-        const LoginScreen = ({ onLogin, loading }) => {
-            const [username, setUsername] = useState('');
+  useEffect(() => {
+    if (gameState === 'PLAYING') {
+      if (activeBet1 && !activeBet1.cashedOut && autoCashout1 && multiplier >= autoCashout1) cashOut(1);
+      if (activeBet2 && !activeBet2.cashedOut && autoCashout2 && multiplier >= autoCashout2) cashOut(2);
+    }
+  }, [multiplier, gameState]);
 
-            const handleSubmit = (e) => {
-                e.preventDefault();
-                if (username.length > 2) onLogin(username);
-            };
-
-            return (
-                <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop')] bg-cover bg-center">
-                    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm"></div>
-                    <div className="relative z-10 w-full max-w-md bg-zinc-900/90 border border-cyan-500/30 p-8 rounded-2xl neon-box">
-                        <div className="flex justify-center mb-6">
-                            <Zap size={64} className="text-cyan-400 animate-pulse" />
-                        </div>
-                        <h1 className="text-4xl font-brand font-black text-center text-white mb-2 tracking-wider">ORION <span className="text-cyan-400">SURGE</span></h1>
-                        <p className="text-center text-zinc-400 mb-8">High Velocity Crypto Simulation</p>
-                        
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div>
-                                <label className="block text-cyan-500 text-sm font-bold mb-2">OPERATOR ID</label>
-                                <input 
-                                    type="text" 
-                                    value={username}
-                                    onChange={(e) => setUsername(e.target.value)}
-                                    className="w-full bg-black border-2 border-zinc-700 focus:border-cyan-500 rounded-lg p-4 text-white font-bold text-lg outline-none transition-colors"
-                                    placeholder="Enter Username"
-                                    disabled={loading}
-                                />
-                            </div>
-                            <button 
-                                type="submit" 
-                                disabled={loading || username.length < 3}
-                                className={`w-full py-4 rounded-lg font-brand font-bold text-lg tracking-widest transition-all ${loading ? 'bg-zinc-700 cursor-not-allowed' : 'bg-cyan-500 hover:bg-cyan-400 text-black animate-glow'}`}
-                            >
-                                {loading ? 'CONNECTING...' : 'INITIATE SYSTEM'}
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            );
-        };
-
-        // 2. GAME COMPONENT
-        const Game = ({ user, onLogout, refreshUser }) => {
-            const canvasRef = useRef(null);
-            
-            // Game State
-            const [gameState, setGameState] = useState('IDLE'); // IDLE, BETTING, FLYING, CRASHED, CASHED_OUT
-            const [multiplier, setMultiplier] = useState(1.00);
-            const [betAmount, setBetAmount] = useState(100);
-            const [balance, setBalance] = useState(user.balance);
-            const [activeTab, setActiveTab] = useState('game'); // game, stats, rewards
-            const [leaderboard, setLeaderboard] = useState([]);
-            const [rewards, setRewards] = useState([]);
-            const [history, setHistory] = useState([]);
-            
-            // Animation Refs
-            const requestRef = useRef();
-            const startTimeRef = useRef();
-            const crashPointRef = useRef(0);
-            
-            // --- GAME LOGIC ---
-            
-            // 1. Start Game
-            const placeBet = () => {
-                if (balance < betAmount) {
-                    alert("Insufficient Funds!");
-                    return;
-                }
-                
-                // Deduct balance locally immediately
-                setBalance(prev => prev - betAmount);
-                setGameState('FLYING');
-                setMultiplier(1.00);
-                
-                // Determine crash point (Simple client-side logic for demo purposes)
-                // In a real money app, this comes from server hash
-                const r = Math.random();
-                // 3% chance of instant crash (1.00x)
-                // Curve: Multiplier = 0.99 / (1-r)
-                let crash = 0.99 / (1 - r);
-                if (r < 0.03) crash = 1.00;
-                crashPointRef.current = Math.min(crash, 1000); // Cap at 1000x
-                
-                // Start Animation
-                startTimeRef.current = Date.now();
-                requestRef.current = requestAnimationFrame(animateGame);
-            };
-
-            // 2. Animation Loop
-            const animateGame = () => {
-                const now = Date.now();
-                const elapsed = (now - startTimeRef.current) / 1000; // seconds
-                
-                // Exponential growth formula: M = e^(0.06 * t)
-                // This makes it slow at start, faster later
-                const currentM = Math.pow(Math.E, 0.15 * elapsed);
-                
-                if (currentM >= crashPointRef.current) {
-                    crashGame(crashPointRef.current);
-                } else {
-                    setMultiplier(currentM);
-                    drawCanvas(currentM, 'flying');
-                    requestRef.current = requestAnimationFrame(animateGame);
-                }
-            };
-
-            // 3. Cash Out
-            const cashOut = () => {
-                if (gameState !== 'FLYING') return;
-                
-                cancelAnimationFrame(requestRef.current);
-                const winAmount = Math.floor(betAmount * multiplier);
-                const newBalance = balance + winAmount; // Balance was already deducted
-                
-                setBalance(newBalance);
-                setGameState('CASHED_OUT');
-                drawCanvas(multiplier, 'success');
-                
-                // Add to local history
-                setHistory(prev => [{m: multiplier, result: 'win'}, ...prev.slice(0, 9)]);
-                
-                // Sync with Server
-                sendRoundResult(newBalance, 'win', multiplier);
-            };
-
-            // 4. Crash Logic
-            const crashGame = (finalValue) => {
-                cancelAnimationFrame(requestRef.current);
-                setMultiplier(finalValue);
-                setGameState('CRASHED');
-                drawCanvas(finalValue, 'crash');
-                
-                // Add to local history
-                setHistory(prev => [{m: finalValue, result: 'loss'}, ...prev.slice(0, 9)]);
-                
-                // Sync with Server (sending loss)
-                sendRoundResult(balance, 'loss', finalValue);
-            };
-
-            // 5. Server Sync
-            const sendRoundResult = async (currentBal, result, finalM) => {
-                try {
-                    // Optimistic update already happened. We just notify server.
-                    await fetch(SCRIPT_URL, {
-                        method: 'POST',
-                        mode: 'no-cors', // standard for GAS
-                        body: JSON.stringify({
-                            action: 'record_round',
-                            userId: user.userId,
-                            betAmount: betAmount,
-                            cashOutMultiplier: finalM,
-                            result: result,
-                            crashPoint: crashPointRef.current
-                        })
-                    });
-                    // Note: with no-cors we can't read response, but we trust it works.
-                    // Periodically we should fetch full user data to re-sync.
-                } catch (e) {
-                    console.error("Sync failed", e);
-                }
-            };
-
-            // --- CANVAS DRAWING ---
-            const drawCanvas = (currentM, state) => {
-                const canvas = canvasRef.current;
-                if (!canvas) return;
-                const ctx = canvas.getContext('2d');
-                const w = canvas.width;
-                const h = canvas.height;
-                
-                // Clear
-                ctx.clearRect(0, 0, w, h);
-                
-                // Background Grid
-                ctx.strokeStyle = '#333';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                for(let i=0; i<w; i+=50) { ctx.moveTo(i,0); ctx.lineTo(i,h); }
-                for(let i=0; i<h; i+=50) { ctx.moveTo(0,i); ctx.lineTo(w,i); }
-                ctx.stroke();
-
-                // Rocket Path
-                // Map Time (X) and Multiplier (Y)
-                // This is a simplified visual representation
-                let x = (currentM - 1) * 50; 
-                let y = h - ((currentM - 1) * 30 + 20);
-                
-                if (x > w - 50) x = w - 50; // Clamp visually
-                if (y < 50) y = 50;
-
-                // Line
-                ctx.beginPath();
-                ctx.moveTo(0, h);
-                // Curving bezier for effect
-                ctx.quadraticCurveTo(x/2, h, x, y);
-                
-                if (state === 'crash') {
-                    ctx.strokeStyle = '#ef4444'; // Red
-                    ctx.shadowColor = '#ef4444';
-                } else if (state === 'success') {
-                    ctx.strokeStyle = '#22c55e'; // Green
-                    ctx.shadowColor = '#22c55e';
-                } else {
-                    ctx.strokeStyle = '#22d3ee'; // Cyan
-                    ctx.shadowColor = '#22d3ee';
-                }
-                
-                ctx.lineWidth = 4;
-                ctx.lineCap = 'round';
-                ctx.shadowBlur = 15;
-                ctx.stroke();
-                ctx.shadowBlur = 0;
-
-                // Rocket/Dot
-                ctx.beginPath();
-                ctx.arc(x, y, 8, 0, Math.PI*2);
-                ctx.fillStyle = state === 'crash' ? '#ef4444' : '#fff';
-                ctx.fill();
-                
-                // Text overlay if crashed
-                if (state === 'crash') {
-                    ctx.fillStyle = '#ef4444';
-                    ctx.font = 'bold 40px Orbitron';
-                    ctx.textAlign = 'center';
-                    ctx.fillText("CRASHED", w/2, h/2);
-                    ctx.font = 'bold 20px Rajdhani';
-                    ctx.fillText(`@ ${currentM.toFixed(2)}x`, w/2, h/2 + 30);
-                }
-            };
-
-            // Init Canvas
-            useEffect(() => {
-                const canvas = canvasRef.current;
-                if (canvas) {
-                    canvas.width = canvas.offsetWidth;
-                    canvas.height = canvas.offsetHeight;
-                    drawCanvas(1.00, 'idle');
-                }
-            }, [activeTab]);
-            
-            // Load Data
-            useEffect(() => {
-                if(activeTab === 'stats') {
-                    fetch(SCRIPT_URL, {
-                        method: 'POST',
-                        body: JSON.stringify({ action: 'get_leaderboard' })
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-                        if(data.success) setLeaderboard(data.leaderboard);
-                    });
-                }
-                // Mock rewards for now or fetch if implemented in backend
-                setRewards([
-                    {id: 1, title: '10% Service Discount', cost: 5000, desc: 'Discount on next invoice'},
-                    {id: 2, title: 'Free Consultation', cost: 10000, desc: '30 min tech strategy call'},
-                    {id: 3, title: 'Coffee Voucher', cost: 2000, desc: 'R50 Voucher'}
-                ]);
-            }, [activeTab]);
-
-
-            // --- RENDER HELPERS ---
-            
-            const renderGame = () => (
-                <div className="flex flex-col h-full">
-                    {/* Graph Area */}
-                    <div className="relative flex-1 bg-zinc-900/50 rounded-xl mb-4 border border-zinc-800 overflow-hidden">
-                        <canvas ref={canvasRef} className="w-full h-full absolute inset-0"></canvas>
-                        
-                        {/* Overlay Multiplier */}
-                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-                            <div className={`text-6xl md:text-8xl font-black font-brand tracking-tighter ${gameState === 'CRASHED' ? 'text-red-500' : gameState === 'CASHED_OUT' ? 'text-green-500' : 'text-white'}`}>
-                                {multiplier.toFixed(2)}x
-                            </div>
-                            <div className="text-cyan-400 font-bold tracking-widest mt-2 animate-pulse">
-                                {gameState === 'FLYING' ? 'LIFT OFF' : gameState === 'IDLE' ? 'READY' : ''}
-                            </div>
-                        </div>
-
-                        {/* Recent History */}
-                        <div className="absolute top-4 right-4 flex gap-2">
-                            {history.map((h, i) => (
-                                <div key={i} className={`px-2 py-1 rounded text-xs font-bold ${h.result === 'win' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                                    {h.m.toFixed(2)}x
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Controls */}
-                    <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
-                        <div className="flex gap-4 mb-4">
-                            <div className="flex-1">
-                                <label className="text-xs text-zinc-500 font-bold mb-1 block">BET AMOUNT</label>
-                                <div className="relative">
-                                    <input 
-                                        type="number" 
-                                        value={betAmount} 
-                                        onChange={(e) => setBetAmount(parseInt(e.target.value) || 0)}
-                                        className="w-full bg-black border border-zinc-700 rounded p-3 text-white font-bold"
-                                        disabled={gameState === 'FLYING'}
-                                    />
-                                    <div className="absolute right-2 top-2 flex gap-1">
-                                        <button onClick={() => setBetAmount(Math.floor(balance/2))} className="bg-zinc-800 px-2 py-1 text-xs rounded hover:bg-zinc-700">1/2</button>
-                                        <button onClick={() => setBetAmount(balance)} className="bg-zinc-800 px-2 py-1 text-xs rounded hover:bg-zinc-700">MAX</button>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="flex-1">
-                                <label className="text-xs text-zinc-500 font-bold mb-1 block">TARGET (AUTO)</label>
-                                <input type="text" placeholder="Disabled" disabled className="w-full bg-black/50 border border-zinc-800 rounded p-3 text-zinc-500 font-bold cursor-not-allowed" />
-                            </div>
-                        </div>
-
-                        {gameState === 'FLYING' ? (
-                            <button 
-                                onClick={cashOut}
-                                className="w-full bg-green-500 hover:bg-green-400 text-black font-brand font-black text-2xl py-6 rounded-lg shadow-[0_0_20px_rgba(34,197,94,0.4)] transform active:scale-95 transition-all"
-                            >
-                                CASH OUT ({(betAmount * multiplier).toFixed(0)})
-                            </button>
-                        ) : (
-                            <button 
-                                onClick={placeBet}
-                                disabled={balance < betAmount || gameState === 'FLYING'}
-                                className={`w-full font-brand font-black text-2xl py-6 rounded-lg transition-all transform active:scale-95 ${
-                                    gameState === 'CRASHED' ? 'bg-red-500 text-white' : 
-                                    'bg-cyan-500 hover:bg-cyan-400 text-black shadow-[0_0_20px_rgba(6,182,212,0.4)]'
-                                }`}
-                            >
-                                {gameState === 'CRASHED' ? 'RETRY' : 'PLACE BET'}
-                            </button>
-                        )}
-                    </div>
-                </div>
-            );
-
-            const renderStats = () => (
-                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 h-full overflow-y-auto">
-                    <h2 className="text-xl font-brand font-bold text-cyan-400 mb-4 flex items-center gap-2">
-                        <Trophy size={20} /> LEADERBOARD
-                    </h2>
-                    <table className="w-full text-left">
-                        <thead>
-                            <tr className="border-b border-zinc-800 text-zinc-500 text-sm">
-                                <th className="pb-2">RANK</th>
-                                <th className="pb-2">OPERATOR</th>
-                                <th className="pb-2 text-right">TOKENS</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {leaderboard.length === 0 ? (
-                                <tr><td colSpan="3" className="text-center py-8 text-zinc-600">Loading...</td></tr>
-                            ) : leaderboard.map((l, idx) => (
-                                <tr key={idx} className="border-b border-zinc-800/50">
-                                    <td className="py-3 font-bold text-zinc-400">#{idx+1}</td>
-                                    <td className="py-3 text-white">{l.username}</td>
-                                    <td className="py-3 text-right font-mono text-cyan-400">{l.balance.toLocaleString()}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            );
-            
-            const renderRewards = () => (
-                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 h-full overflow-y-auto">
-                    <h2 className="text-xl font-brand font-bold text-purple-400 mb-4 flex items-center gap-2">
-                        <Gift size={20} /> REWARDS CATALOG
-                    </h2>
-                    <div className="grid gap-4">
-                        {rewards.map(r => (
-                            <div key={r.id} className="bg-black/40 border border-zinc-700 p-4 rounded-lg flex justify-between items-center">
-                                <div>
-                                    <h3 className="font-bold text-white">{r.title}</h3>
-                                    <p className="text-xs text-zinc-400">{r.desc}</p>
-                                </div>
-                                <button className="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded text-xs font-bold transition-colors">
-                                    {r.cost.toLocaleString()} PTS
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            );
-
-            return (
-                <div className="h-screen flex flex-col max-w-lg mx-auto bg-black shadow-2xl overflow-hidden">
-                    {/* Header */}
-                    <div className="p-4 bg-zinc-900 border-b border-zinc-800 flex justify-between items-center z-10">
-                        <div className="flex items-center gap-2">
-                            <Zap className="text-cyan-400" size={24} />
-                            <span className="font-brand font-bold text-xl tracking-wider">ORION</span>
-                        </div>
-                        <div className="bg-black/50 px-4 py-1 rounded-full border border-cyan-500/30 flex items-center gap-2">
-                            <Coins size={14} className="text-yellow-400" />
-                            <span className="font-mono font-bold text-cyan-400 text-lg">{balance.toLocaleString()}</span>
-                        </div>
-                    </div>
-
-                    {/* Main Content */}
-                    <div className="flex-1 p-4 overflow-hidden">
-                        {activeTab === 'game' && renderGame()}
-                        {activeTab === 'stats' && renderStats()}
-                        {activeTab === 'rewards' && renderRewards()}
-                    </div>
-
-                    {/* Navigation */}
-                    <div className="bg-zinc-950 border-t border-zinc-800 p-2 flex justify-around safe-area-bottom">
-                        <button onClick={() => setActiveTab('game')} className={`p-3 rounded-lg flex flex-col items-center gap-1 ${activeTab === 'game' ? 'text-cyan-400' : 'text-zinc-600'}`}>
-                            <Activity size={24} />
-                            <span className="text-[10px] font-bold">GAME</span>
-                        </button>
-                        <button onClick={() => setActiveTab('stats')} className={`p-3 rounded-lg flex flex-col items-center gap-1 ${activeTab === 'stats' ? 'text-cyan-400' : 'text-zinc-600'}`}>
-                            <Trophy size={24} />
-                            <span className="text-[10px] font-bold">RANK</span>
-                        </button>
-                        <button onClick={() => setActiveTab('rewards')} className={`p-3 rounded-lg flex flex-col items-center gap-1 ${activeTab === 'rewards' ? 'text-purple-400' : 'text-zinc-600'}`}>
-                            <Gift size={24} />
-                            <span className="text-[10px] font-bold">LOOT</span>
-                        </button>
-                        <button onClick={onLogout} className="p-3 rounded-lg flex flex-col items-center gap-1 text-zinc-600 hover:text-red-400">
-                            <LogOut size={24} />
-                            <span className="text-[10px] font-bold">EXIT</span>
-                        </button>
-                    </div>
-                </div>
-            );
-        };
-
-        // 3. MAIN APP
-        const App = () => {
-            const [user, setUser] = useState(null);
-            const [loading, setLoading] = useState(false);
-
-            // Check LocalStorage for session
-            useEffect(() => {
-                const saved = localStorage.getItem('orion_user');
-                if(saved) setUser(JSON.parse(saved));
-            }, []);
-
-            const handleLogin = async (username) => {
-                setLoading(true);
-                try {
-                    // Call Google Apps Script
-                    const res = await fetch(SCRIPT_URL, {
-                        method: 'POST',
-                        body: JSON.stringify({ action: 'login', username: username })
-                    });
-                    const data = await res.json();
-                    
-                    if (data.success) {
-                        setUser(data.user);
-                        localStorage.setItem('orion_user', JSON.stringify(data.user));
-                    } else {
-                        alert("Connection Failed. Check URL.");
-                    }
-                } catch (e) {
-                    console.error(e);
-                    // Fallback for demo if URL is invalid
-                    alert("Network Error: Ensure Script URL is correct in index.html. Starting Demo Mode.");
-                    const demoUser = { userId: 'DEMO', username: username, balance: 1000 };
-                    setUser(demoUser);
-                }
-                setLoading(false);
-            };
-
-            const handleLogout = () => {
-                setUser(null);
-                localStorage.removeItem('orion_user');
-            };
-
-            return (
-                <React.StrictMode>
-                    {user ? <Game user={user} onLogout={handleLogout} /> : <LoginScreen onLogin={handleLogin} loading={loading} />}
-                </React.StrictMode>
-            );
-        };
-
-        // Mount
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
-
-    <!-- Service Worker Registration -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('SW Registered'))
-                    .catch(err => console.log('SW Fail', err));
-            });
+  useEffect(() => {
+    let interval;
+    if (gameState === 'BETTING') {
+      interval = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) {
+            setCrashPoint(generateCrashPoint());
+            setGameState('PLAYING');
+            setMultiplier(1.00);
+            startTimeRef.current = Date.now();
+            return 6;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else if (gameState === 'PLAYING') {
+      interval = setInterval(() => {
+        const elapsed = (Date.now() - startTimeRef.current) / 1000;
+        const newMultiplier = Math.round(Math.pow(1.1, elapsed * 2) * 100) / 100;
+        setMultiplier(newMultiplier);
+        
+        if (newMultiplier >= crashPoint || newMultiplier >= 300) {
+          setGameState('CRASHED');
+          let houseTake = 0;
+          if (activeBet1 && !activeBet1.cashedOut) houseTake += activeBet1.amount;
+          if (activeBet2 && !activeBet2.cashedOut) houseTake += activeBet2.amount;
+          setHouseProfit(prev => prev + houseTake);
+          
+          setTimeout(() => {
+            setRecentCrashes(prev => [crashPoint, ...prev.slice(0, 19)]);
+            setTimeout(() => {
+              setActiveBet1(null);
+              setActiveBet2(null);
+              setRoundId(prev => prev + 1);
+              setCountdown(6);
+              setGameState('BETTING');
+            }, 2000);
+          }, 1000);
         }
-    </script>
+      }, 50);
+    }
+    return () => clearInterval(interval);
+  }, [gameState, roundId, crashPoint]);
+
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4">
+        <div className="bg-slate-800/50 backdrop-blur-xl border-2 border-blue-500/30 rounded-2xl p-8 max-w-md w-full">
+          <div className="text-center mb-8">
+            <Zap className="w-24 h-24 text-cyan-400 mx-auto mb-4 animate-pulse" style={{filter: 'drop-shadow(0 0 25px rgba(34,211,238,0.8))'}} />
+            <h1 className="text-4xl font-bold text-white mb-2">ORION SURGE</h1>
+            <p className="text-cyan-400 text-sm font-semibold">AI AMPLIFIES. I CREATE.</p>
+          </div>
+          <input
+            type="text"
+            placeholder="Enter Username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && username.trim() && setIsLoggedIn(true)}
+            className="w-full px-4 py-3 mb-4 bg-slate-900/50 border border-blue-500/30 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
+          />
+          <button onClick={() => username.trim() && setIsLoggedIn(true)} className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold py-3 rounded-lg">
+            START PLAYING
+          </button>
+          <p className="text-xs text-slate-400 text-center mt-4">Starting balance: 1,000 tokens 🪙</p>
+        </div>
+      </div>
+    );
+  }
+
+  const BetSlot = ({slot, betAmount, setBetAmount, activeBet, autoCashout, setAutoCashout}) => (
+    <div className="bg-slate-800/50 border border-blue-500/30 rounded-xl p-4">
+      <h3 className="text-cyan-400 font-bold mb-3 flex items-center gap-2">
+        <DollarSign className="w-4 h-4" />Bet Slot {slot}
+      </h3>
+      <div className="space-y-3">
+        <div>
+          <label className="text-xs text-slate-400 block mb-1">Bet Amount</label>
+          <input type="number" value={betAmount} onChange={(e) => setBetAmount(Math.max(40, Math.min(2000, parseInt(e.target.value) || 40)))} disabled={gameState !== 'BETTING' || activeBet} className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded text-white disabled:opacity-50" min="40" max="2000" />
+          <div className="flex gap-1 mt-2">
+            {[100, 200, 500, 1000].map(amt => (
+              <button key={amt} onClick={() => setBetAmount(amt)} disabled={gameState !== 'BETTING' || activeBet} className="flex-1 px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs disabled:opacity-50">{amt}</button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className="text-xs text-slate-400 block mb-1">Auto Cashout</label>
+          <input type="number" value={autoCashout || ''} onChange={(e) => setAutoCashout(e.target.value ? parseFloat(e.target.value) : null)} placeholder="e.g., 2.50" disabled={gameState !== 'BETTING' || activeBet} className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded text-white placeholder-slate-600 disabled:opacity-50" />
+        </div>
+        {!activeBet ? (
+          <button onClick={() => placeBet(slot)} disabled={gameState !== 'BETTING'} className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 disabled:from-slate-700 disabled:to-slate-600 text-white font-bold py-3 rounded-lg">
+            {gameState === 'BETTING' ? 'PLACE BET' : 'WAIT...'}
+          </button>
+        ) : !activeBet.cashedOut && gameState === 'PLAYING' ? (
+          <button onClick={() => cashOut(slot)} className="w-full bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-white font-bold py-3 rounded-lg animate-pulse">
+            CASH OUT {Math.floor(activeBet.amount * multiplier)} 🪙
+          </button>
+        ) : (
+          <div className="w-full bg-slate-700 text-slate-400 font-bold py-3 rounded-lg text-center">{activeBet.cashedOut ? '✅ Cashed Out' : '⏳ Waiting...'}</div>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white pb-16">
+      <div className="bg-slate-900/80 border-b border-blue-500/30 px-4 py-3">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Zap className="w-8 h-8 text-cyan-400" />
+            <div>
+              <h1 className="text-xl font-bold">ORION SURGE</h1>
+              <p className="text-xs text-slate-400">Round #{roundId}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-6">
+            <div className="text-right">
+              <p className="text-xs text-slate-400">Balance</p>
+              <p className="text-lg font-bold text-yellow-400">{balance.toFixed(2)} 🪙</p>
+            </div>
+            <button onClick={() => setShowSettings(!showSettings)} className="p-2 hover:bg-slate-800 rounded-lg"><Settings className="w-5 h-5" /></button>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-slate-800/30 px-4 py-2 border-b border-slate-700/50">
+        <div className="max-w-7xl mx-auto flex items-center gap-2 overflow-x-auto">
+          <TrendingUp className="w-4 h-4 text-slate-400" />
+          <div className="flex gap-2">
+            {recentCrashes.length === 0 ? <span className="text-xs text-slate-500">No history yet...</span> : 
+              recentCrashes.map((crash, idx) => (
+                <span key={idx} className={`text-xs font-bold px-2 py-1 rounded ${crash < 2 ? 'bg-red-500/20 text-red-400' : crash < 10 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-green-500/20 text-green-400'}`}>
+                  {crash.toFixed(2)}x
+                </span>
+              ))
+            }
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 space-y-4">
+          <div className="bg-slate-800/50 border-2 border-blue-500/30 rounded-2xl p-6 relative min-h-[500px] flex flex-col items-center justify-center">
+            {gameState === 'BETTING' && (
+              <div className="text-center">
+                <Zap className="w-32 h-32 text-cyan-400 mx-auto mb-6 animate-pulse" style={{filter: 'drop-shadow(0 0 30px rgba(34,211,238,0.8))'}} />
+                <h2 className="text-5xl font-bold text-cyan-400 mb-4 animate-pulse">PLACE YOUR BETS</h2>
+                <div className="text-8xl font-bold text-yellow-400">{countdown}</div>
+                <p className="text-slate-400 mt-4">Next round starting...</p>
+              </div>
+            )}
+            {(gameState === 'PLAYING' || gameState === 'CRASHED') && (
+              <div className="text-center">
+                <Zap className={`w-48 h-48 mx-auto mb-8 ${gameState === 'CRASHED' ? 'text-red-500 animate-ping' : 'text-cyan-400'}`} style={{filter: `drop-shadow(0 0 ${Math.min(multiplier * 5, 50)}px rgba(34,211,238,0.8))`, transform: `scale(${Math.min(1 + (multiplier - 1) * 0.1, 2)})`}} />
+                <div className={`text-9xl font-bold mb-4 ${gameState === 'CRASHED' ? 'text-red-500' : 'text-yellow-400'}`} style={{textShadow: `0 0 ${Math.min(multiplier * 3, 40)}px currentColor`}}>{multiplier.toFixed(2)}x</div>
+                {gameState === 'CRASHED' && <div className="text-3xl font-bold text-red-400 animate-pulse">💥 CRASHED! 💥</div>}
+                <div className="mt-8 space-y-2">
+                  {activeBet1 && (
+                    <div className={`px-6 py-3 rounded-lg ${activeBet1.cashedOut ? 'bg-green-500/20 border border-green-500' : 'bg-blue-500/20 border border-blue-500'}`}>
+                      <p className={`${activeBet1.cashedOut ? 'text-green-400' : 'text-white'} font-bold`}>
+                        {activeBet1.cashedOut ? `Slot 1: Cashed out ${activeBet1.winAmount} at ${activeBet1.cashoutMultiplier.toFixed(2)}x! 🎉` : `Slot 1: ${activeBet1.amount} → ${Math.floor(activeBet1.amount * multiplier)} tokens`}
+                      </p>
+                    </div>
+                  )}
+                  {activeBet2 && (
+                    <div className={`px-6 py-3 rounded-lg ${activeBet2.cashedOut ? 'bg-green-500/20 border border-green-500' : 'bg-blue-500/20 border border-blue-500'}`}>
+                      <p className={`${activeBet2.cashedOut ? 'text-green-400' : 'text-white'} font-bold`}>
+                        {activeBet2.cashedOut ? `Slot 2: Cashed out ${activeBet2.winAmount} at ${activeBet2.cashoutMultiplier.toFixed(2)}x! 🎉` : `Slot 2: ${activeBet2.amount} → ${Math.floor(activeBet2.amount * multiplier)} tokens`}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {gameState === 'CRASHED' && (
+              <div className="absolute top-4 right-4 bg-red-500/20 border border-red-500 rounded-lg px-4 py-2">
+                <p className="text-red-400 font-bold">Crashed at {crashPoint?.toFixed(2)}x</p>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <BetSlot slot={1} betAmount={betAmount1} setBetAmount={setBetAmount1} activeBet={activeBet1} autoCashout={autoCashout1} setAutoCashout={setAutoCashout1} />
+            <BetSlot slot={2} betAmount={betAmount2} setBetAmount={setBetAmount2} activeBet={activeBet2} autoCashout={autoCashout2} setAutoCashout={setAutoCashout2} />
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="bg-slate-800/50 border border-blue-500/30 rounded-xl p-4">
+            <h3 className="text-cyan-400 font-bold mb-3 flex items-center gap-2"><Trophy className="w-4 h-4" />Your Stats</h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between"><span className="text-slate-400">Username:</span><span className="font-bold">{username}</span></div>
+              <div className="flex justify-between"><span className="text-slate-400">Balance:</span><span className="font-bold text-yellow-400">{balance.toFixed(2)} 🪙</span></div>
+              <div className="flex justify-between"><span className="text-slate-400">Wagered:</span><span className="font-bold">{totalWagered.toFixed(2)} 🪙</span></div>
+              <div className="flex justify-between"><span className="text-slate-400">Rounds:</span><span className="font-bold">{roundId - 1}</span></div>
+            </div>
+          </div>
+
+          <div className="bg-slate-800/50 border border-red-500/30 rounded-xl p-4">
+            <h3 className="text-red-400 font-bold mb-3 flex items-center gap-2"><DollarSign className="w-4 h-4" />House</h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between"><span className="text-slate-400">Profit:</span><span className="font-bold text-red-400">{houseProfit.toFixed(2)} 🪙</span></div>
+            </div>
+          </div>
+
+          <div className="bg-slate-800/50 border border-blue-500/30 rounded-xl p-4">
+            <h3 className="text-cyan-400 font-bold mb-3">⚡ Rules</h3>
+            <div className="space-y-1 text-xs text-slate-400">
+              <p>• Min: 40, Max: 2,000 tokens</p>
+              <p>• Crash: 1.05x - 100x</p>
+              <p>• 6 sec betting phase</p>
+              <p>• Two betting slots</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {showSettings && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-800 border-2 border-cyan-500/50 rounded-2xl p-6 max-w-md w-full">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-cyan-400">Settings</h2>
+              <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+            <div className="space-y-4">
+              <div className="pt-4 border-t border-slate-700">
+                <h3 className="text-cyan-400 font-bold mb-2">Contact</h3>
+                <p className="text-sm text-slate-400">graham@oriondevcore.com<br />+27 72 497 1810<br />www.oriondevcore.com</p>
+              </div>
+              <button onClick={() => { if (window.confirm('Logout?')) { setIsLoggedIn(false); setUsername(''); setBalance(1000); setActiveBet1(null); setActiveBet2(null); setRecentCrashes([]); setTotalWagered(0); setHouseProfit(0); setRoundId(1); }}} className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2 rounded-lg">Logout</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="fixed bottom-0 left-0 right-0 bg-slate-900/90 border-t border-blue-500/30 px-4 py-2">
+        <div className="max-w-7xl mx-auto flex items-center justify-between text-xs text-slate-400">
+          <div><span className="text-cyan-400 font-bold">ORION SURGE</span> • Token-based gaming</div>
+          <div>⚡ ORION DEV CORE</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default OrionSurge;
+  </script>
+  
+  <script>
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('SW registered:', reg))
+        .catch(err => console.log('SW registration failed:', err));
+    }
+  </script>
 </body>
 </html>
-
-
